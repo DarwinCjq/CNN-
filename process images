@@ -1,0 +1,138 @@
+import os
+import  xml.dom.minidom
+file_dir = 'F:/tianchiCOMPETITION/test_crop/'
+
+xmls = []
+for i in files:
+    if os.path.splitext(i)[1] == '.xml':
+        xmls.append(i)
+
+from PIL import Image
+import matplotlib.pyplot as plt
+
+# 裁剪瑕疵
+for i in range(0,len(xmls)):
+    dom = xml.dom.minidom.parse(file_dir+xmls[i])
+    root = dom.documentElement
+    filename = root.getElementsByTagName('filename')
+    imgName = filename[0].firstChild.data
+    xmin = root.getElementsByTagName('xmin')
+    ymin = root.getElementsByTagName('ymin')
+    xmax = root.getElementsByTagName('xmax')
+    ymax = root.getElementsByTagName('ymax')
+    x_min = int(xmin[0].firstChild.data)
+    y_min = int(ymin[0].firstChild.data)
+    x_max = int(xmax[0].firstChild.data)
+    y_max = int(ymax[0].firstChild.data)
+    im = Image.open(file_dir+imgName)
+    if x_max+220>2560 and y_max+220<1920:
+        region = im.crop((x_min, y_min, x_max, y_max+220))
+    elif x_max+220<2560 and y_max+220<1920:
+        region = im.crop((x_min, y_min, x_max+220, y_max+220))
+    elif x_max+220<2560 and y_max+220>1920:
+        region = im.crop((x_min, y_min, x_max+220, y_max))
+    else:
+        region = im.crop((x_min, y_min, x_max, y_max))
+    region.save("D:/xuelangAI/train_crop/"+imgName)
+    print('Processed No.%d image'%i)
+    
+
+# 分割正常图片
+file_dir = 'D:/xuelangAI/train_正常/'
+files = os.listdir(file_dir2)
+for i in range(0,len(files)):
+    im = Image.open(file_dir2+files[i])
+    region1 = im.crop((0,0,1280,960))
+    region2 = im.crop((1280,0,2560,960))
+    region3 = im.crop((0,960,1280,1920))
+    region4 = im.crop((1280,960,2560,1920))
+    box = [region1, region2, region3, region4]
+    for j in range(0,4):
+        name = os.path.splitext(files[i])
+        box[j].save(('D:/xuelangAI/train_crop正常/'+name[0]+'-%d'+name[1])%j)
+    print('Cropping No.%d image'%i)
+
+# 对非正常图片进行翻转
+from random import shuffle
+import random
+from PIL import Image
+import os
+file_dir = 'D:/xuelangAI/train_resize64/'
+files = os.listdir(file_dir)
+num = [0,1,2]
+for i in range(0, len(files)):
+    im = Image.open(file_dir+files[i])
+    rotate1 = im.transpose(Image.ROTATE_90)
+    rotate2 = im.transpose(Image.ROTATE_180)
+    rotate3 = im.transpose(Image.ROTATE_270)
+    box = [rotate1, rotate2, rotate3]
+    a = random.randint(0,2)
+    name = os.path.splitext(files[i])
+    box[a].save((file_dir+name[0]+'-1'+name[1]))
+    print('Rotating No.%d image'%i)
+
+# resize 训练集图片
+import os
+from PIL import Image
+dir0 = 'D:/xuelangAI/train_crop正常/'
+dir1 = 'D:/xuelangAI/train_crop非正常/'
+dir00 = 'D:/xuelangAI/train_resize64正常/'
+dir11 = 'D:/xuelangAI/train_resize64非正常/'
+files0 = os.listdir(dir0)
+files1 = os.listdir(dir1)
+def img_resize(files, dir, path):
+    for i in range(0,len(files)):
+        im = Image.open(dir+files[i])
+        img_temp = im.resize((64,64), Image.ANTIALIAS)
+        img_temp.save(path+files[i], quality=90)
+        print('Resizing No.%d image'%i)
+
+img_resize(files0, dir0, dir00)
+img_resize(files1, dir1, dir11)
+
+# resize 测试集图片
+import os
+from PIL import Image
+dir0 = 'D:/xuelangAI/xuelang_round1_test_a_20180709/xuelang_round1_test_a_20180709/'
+dir1 = 'D:/xuelangAI/test_resize64/'
+files1 = os.listdir(dir0)
+def img_resize(files, dir, path):
+    for i in range(0,len(files)):
+        im = Image.open(dir+files[i])
+        img_temp = im.resize((64,64), Image.ANTIALIAS)
+        img_temp.save(path+files[i], quality=90)
+        print('Resizing No.%d image'%i)
+
+img_resize(files1, dir0, dir1)
+
+# resize 正常图片
+import os
+from PIL import Image
+dir0 = 'D:/xuelangAI/train_正常/'
+dir1 = 'D:/xuelangAI/train_resize64/'
+files1 = os.listdir(dir0)
+def img_resize(files, dir, path):
+    for i in range(0,len(files)):
+        im = Image.open(dir+files[i])
+        img_temp = im.resize((64,64), Image.ANTIALIAS)
+        img_temp.save(path+files[i], quality=90)
+        print('Resizing No.%d image'%i)
+
+img_resize(files1, dir0, dir1)
+
+import pickle
+a = pickle.load(open('D:/xuelangAI/test_prob.pickle', 'rb'))
+b = pickle.load(open('D:/xuelangAI/test_name.pickle', 'rb'))
+temp = []
+for i in range(a.shape[0]):
+    temp.append(a[i][0])
+
+import pandas as pd
+dataframe = pd.DataFrame({'filename':b,'probability':temp})
+dataframe.to_csv("D:/xuelangAI/test.csv",index=False,sep=',')
+
+#blur : remove noises in images
+#0是指根据窗口大小（ 5,5 ）来计算高斯函数标准差 
+blur = cv2.GaussianBlur(img,(5,5),0)
+#中值模糊
+median = cv2.medianBlur(img,5)
